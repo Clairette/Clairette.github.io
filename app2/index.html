@@ -102,7 +102,7 @@
     stroke-width: 18;
   }
 
-  /* Progress arc â€” drawn via JS */
+  /* Progress arc — drawn via JS */
   .ring-progress {
     fill: none;
     stroke-width: 18;
@@ -354,7 +354,7 @@
 
   <div class="header">
     <h1>Work<em>day</em></h1>
-    <p>8 â€” hour focus timer</p>
+    <p>8 — hour focus timer</p>
   </div>
 
   <div class="dial-wrap">
@@ -377,7 +377,7 @@
   <div class="phase-bar">
     <div class="phase-label">
       <span>Daily Progress</span>
-      <span id="phaseStatus">â€” not started</span>
+      <span id="phaseStatus">— not started</span>
     </div>
     <div class="phase-segments" id="segments"></div>
   </div>
@@ -409,21 +409,21 @@
   </div>
 
   <div class="complete-msg" id="completeMsg">
-    <h2>Day complete ðŸŽ‰</h2>
+    <h2>Day complete 🎉</h2>
     <p>You've finished your 8-hour workday. Well done!</p>
   </div>
 
 </div>
 
 <script>
-// â”€â”€â”€ Config â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Config ───────────────────────────────────────────────────────────────────
 const WORK_MIN   = 25;
 const SHORT_MIN  = 5;
 const LONG_MIN   = 15;
 const LONG_EVERY = 4;  // long break after every 4 pomodoros
 const TOTAL_SEC  = 8 * 60 * 60; // 8 hours
 
-// â”€â”€â”€ State â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── State ───────────────────────────────────────────────────────────────────
 let state = loadState() || freshState();
 
 function freshState() {
@@ -459,7 +459,7 @@ function buildPhaseSequence() {
   return seq;
 }
 
-// â”€â”€â”€ SVG Setup â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── SVG Setup ───────────────────────────────────────────────────────────────
 const R = 82, CX = 100, CY = 100;
 const CIRC = 2 * Math.PI * R;
 
@@ -488,7 +488,7 @@ progressRing.style.strokeDashoffset = CIRC;
   }
 })();
 
-// â”€â”€â”€ Segments display â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Segments display ─────────────────────────────────────────────────────────
 function buildSegmentsUI() {
   const container = document.getElementById('segments');
   container.innerHTML = '';
@@ -520,7 +520,7 @@ function updateSegments() {
   });
 }
 
-// â”€â”€â”€ Timer logic â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Timer logic ─────────────────────────────────────────────────────────────
 let ticker = null;
 
 function toggleTimer() {
@@ -605,7 +605,7 @@ function completePhase() {
   state.phaseElapsed = 0;
 }
 
-// â”€â”€â”€ UI Update â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── UI Update ────────────────────────────────────────────────────────────────
 const COLORS = [
   '#ff6b6b','#ff9f43','#ffd43b','#69db7c',
   '#74c0fc','#cc5de8','#ffa94d','#ff6b6b'
@@ -635,15 +635,15 @@ function updateUI() {
   const workN = Math.floor(phIdx / 2) + 1;
   let sessionLabel = '';
   if (ph.type === 'work') sessionLabel = 'Work Session ' + workN;
-  else if (ph.type === 'long') sessionLabel = 'Long Break â˜•';
-  else sessionLabel = 'Short Break ðŸŒ¿';
+  else if (ph.type === 'long') sessionLabel = 'Long Break ☕';
+  else sessionLabel = 'Short Break 🌿';
   document.getElementById('sessionTag').textContent = sessionLabel;
 
   // Phase bar
   const phaseNames = { work: 'Focus', short: 'Break', long: 'Long Break' };
   const phRem = ph.dur - state.phaseElapsed;
   document.getElementById('phaseStatus').textContent =
-    phaseNames[ph.type] + ' Â· ' + fmtMin(phRem);
+    phaseNames[ph.type] + ' · ' + fmtMin(phRem);
 
   updateSegments();
 
@@ -680,13 +680,13 @@ function updateUI() {
   stxt.textContent = state.complete
     ? 'Workday complete!'
     : state.running
-    ? (ph.type === 'work' ? 'Focusingâ€¦' : 'On a breakâ€¦')
+    ? (ph.type === 'work' ? 'Focusing…' : 'On a break…')
     : state.elapsed > 0
     ? 'Paused'
     : 'Ready to begin your workday';
 }
 
-// â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 function fmtTime(sec) {
   const h = Math.floor(sec / 3600);
   const m = Math.floor((sec % 3600) / 60);
@@ -707,7 +707,7 @@ function hexToGlow(hex) {
   return `rgba(${r},${g},${b},0.18)`;
 }
 
-// â”€â”€â”€ Persistence â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Persistence ─────────────────────────────────────────────────────────────
 function saveState() {
   try {
     sessionStorage.setItem('workday_timer', JSON.stringify(state));
@@ -725,13 +725,13 @@ function loadState() {
   } catch(e) { return null; }
 }
 
-// â”€â”€â”€ Keyboard support â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Keyboard support ────────────────────────────────────────────────────────
 document.addEventListener('keydown', e => {
   if (e.code === 'Space') { e.preventDefault(); toggleTimer(); }
   if (e.code === 'KeyR' && !state.running) resetTimer();
 });
 
-// â”€â”€â”€ Init â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Init ────────────────────────────────────────────────────────────────────
 updateUI();
 </script>
 </body>
