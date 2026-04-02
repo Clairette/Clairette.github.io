@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Daily Flow · Activity Tracker</title>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:Helvetica,Arial,sans-serif;background:#fdf9f5;color:#2c2c2a;min-height:100vh}
+    .app{max-width:100%;margin:0 auto;padding:28px 16px 80px}
+    h1{font-size:24px;font-weight:500;color:#2c2c2a;margin-bottom:4px}
+    .tagline{font-size:13px;color:#888780;margin-bottom:28px}
+    .tabs-row{display:flex;align-items:center;gap:0;border-bottom:1.5px solid #e8e5de;overflow-x:auto;scrollbar-width:none}
+    .tabs-row::-webkit-scrollbar{display:none}
+    .tab-btn{flex-shrink:0;font-family:Helvetica,Arial,sans-serif;font-size:13px;font-weight:400;padding:10px 18px;border:none;background:transparent;color:#888780;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1.5px;white-space:nowrap;transition:color .15s,border-color .15s}
+    .tab-btn.active{color:#2c2c2a;border-bottom-color:#e8935a;font-weight:500}
+    .tab-btn:hover:not(.active){color:#2c2c2a}
+    .add-tab-btn{flex-shrink:0;font-family:Helvetica,Arial,sans-serif;font-size:22px;font-weight:300;padding:4px 14px;border:none;background:transparent;color:#b4b2a9;cursor:pointer;margin-bottom:-1.5px;line-height:1}
+    .add-tab-btn:hover{color:#e8935a}
+    .manage-row{display:flex;justify-content:flex-end;margin:14px 0 0}
+    .manage-btn{font-family:Helvetica,Arial,sans-serif;font-size:12px;color:#888780;background:none;border:none;cursor:pointer;text-decoration:underline;text-underline-offset:3px;padding:4px 0}
+    .manage-btn:hover{color:#2c2c2a}
+    .panel{padding:18px 0}
+    .grid-wrap{display:flex;gap:0;width:100%}
+    .day-labels{display:flex;flex-direction:column;gap:2px;padding-top:24px;margin-right:4px;flex-shrink:0}
+    .day-label{height:36px;width:20px;display:flex;align-items:center;justify-content:flex-end;font-size:10px;color:#b4b2a9;line-height:1}
+    .months-area{display:flex;gap:3px;flex:1;justify-content:space-between}
+    .month-col{display:flex;flex-direction:column;align-items:center;flex:1}
+    .month-name{font-size:9px;color:#b4b2a9;margin-bottom:3px;text-align:center;height:20px;line-height:20px}
+    .month-stars{display:flex;flex-direction:column;gap:2px;width:100%;align-items:center}
+    .star-cell{width:100%;max-width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:22px;color:#d3d1c7;line-height:1;border-radius:4px;transition:color .15s,transform .1s;user-select:none;-webkit-tap-highlight-color:transparent}
+    .star-cell:hover:not(.empty):not(.future){color:#f0c060;transform:scale(1.15)}
+    .star-cell.done{color:#f5c022}
+    .star-cell.today{outline:2px solid #e8935a;border-radius:4px}
+    .star-cell.empty{cursor:default;color:transparent;pointer-events:none;visibility:hidden}
+    .star-cell.future{color:#ede9e2;cursor:default;pointer-events:none}
+    .progress-row{display:flex;align-items:center;gap:10px;margin-top:16px}
+    .progress-bar{flex:1;height:5px;background:#ece9e2;border-radius:100px;overflow:hidden;max-width:400px}
+    .progress-fill{height:100%;background:#f5c022;border-radius:100px;transition:width .4s}
+    .progress-text{font-size:12px;color:#888780;white-space:nowrap}
+    .no-activity{text-align:center;padding:48px 0;color:#b4b2a9;font-size:14px}
+    .modal-backdrop{display:none;position:fixed;inset:0;background:rgba(44,44,42,.4);z-index:200;align-items:center;justify-content:center}
+    .modal-backdrop.open{display:flex}
+    .modal{background:#fff;border-radius:14px;padding:24px;width:92%;max-width:400px;box-shadow:0 8px 32px rgba(0,0,0,.14)}
+    .modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+    .modal-header h2{font-size:16px;font-weight:500;color:#2c2c2a}
+    .modal-close{background:none;border:none;font-size:18px;color:#b4b2a9;cursor:pointer;line-height:1;padding:0}
+    .modal-close:hover{color:#2c2c2a}
+    .modal-list{display:flex;flex-direction:column;gap:8px;margin-bottom:16px;max-height:220px;overflow-y:auto}
+    .modal-item{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:#fdf9f5;border-radius:8px;font-size:14px;color:#2c2c2a}
+    .rm-btn{background:none;border:none;color:#d3d1c7;font-size:20px;cursor:pointer;line-height:1;padding:0 4px;font-weight:300}
+    .rm-btn:hover{color:#e24b4a}
+    .add-row{display:flex;gap:8px}
+    .add-row input{flex:1;font-family:Helvetica,Arial,sans-serif;font-size:14px;padding:9px 12px;border:1px solid #d3d1c7;border-radius:8px;outline:none;background:#fff;color:#2c2c2a}
+    .add-row input:focus{border-color:#e8935a}
+    .add-row button{font-family:Helvetica,Arial,sans-serif;font-size:14px;padding:9px 18px;background:#e8935a;color:#fff;border:none;border-radius:8px;cursor:pointer}
+    .add-row button:hover{background:#d4783f}
+    .confirm-modal{background:#fff;border-radius:14px;padding:24px;width:92%;max-width:340px}
+    .confirm-modal p{font-size:14px;color:#2c2c2a;margin-bottom:20px;line-height:1.55}
+    .confirm-btns{display:flex;gap:10px;justify-content:flex-end}
+    .confirm-btns button{font-family:Helvetica,Arial,sans-serif;font-size:13px;padding:8px 18px;border-radius:8px;border:none;cursor:pointer}
+    .btn-cancel{background:#f1efe8;color:#5f5e5a}
+    .btn-cancel:hover{background:#e2e0d8}
+    .btn-delete{background:#e24b4a;color:#fff}
+    .btn-delete:hover{background:#c23c3b}
+  </style>
+</head>
+<body>
+<div class="app">
+  <h1>Daily Flow</h1>
+  <p class="tagline">Track your habits across the year — click a star to mark the day.</p>
+  <div class="tabs-row" id="tabsRow"></div>
+  <div class="manage-row">
+    <button class="manage-btn" onclick="openManage()">Manage activities</button>
+  </div>
+  <div id="panelArea"></div>
+</div>
+
+<div class="modal-backdrop" id="manageModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>Activities</h2>
+      <button class="modal-close" onclick="closeManage()">✕</button>
+    </div>
+    <div class="modal-list" id="manageList"></div>
+    <div class="add-row">
+      <input id="newActInput" placeholder="New activity name…" maxlength="40" />
+      <button onclick="addActivity()">Add</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="confirmModal">
+  <div class="confirm-modal">
+    <p id="confirmText"></p>
+    <div class="confirm-btns">
+      <button class="btn-cancel" onclick="closeConfirm()">Cancel</button>
+      <button class="btn-delete" onclick="doDelete()">Remove</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const STORE='dailyflow2';
+const YEAR=new Date().getFullYear();
+const TODAY=new Date();TODAY.setHours(0,0,0,0);
+const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const MAX_ROWS=31;
+function fmt(d){return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}
+const todayKey=fmt(TODAY);
+function load(){try{return JSON.parse(localStorage.getItem(STORE))||{}}catch(e){return{}}}
+function save(d){try{localStorage.setItem(STORE,JSON.stringify(d))}catch(e){}}
+let state=load();
+if(!state.activities){state.activities=['Morning workout','Drink water','Read 20 min','Meditate','Journaling'];save(state);}
+if(!state.records)state.records={};
+let activeTab=0,pendingDelete=null;
+
+function buildGrid(actName){
+  const recs=state.records[actName]||{};
+  let totalDays=0,doneDays=0;
+  let dayLabels='<div class="day-labels">';
+  for(let d=1;d<=MAX_ROWS;d++) dayLabels+=`<div class="day-label">${d}</div>`;
+  dayLabels+='</div>';
+  let monthsHtml='<div class="months-area">';
+  for(let m=0;m<12;m++){
+    const daysInMonth=new Date(YEAR,m+1,0).getDate();
+    monthsHtml+=`<div class="month-col"><div class="month-name">${MONTHS[m]}</div><div class="month-stars">`;
+    for(let d=1;d<=MAX_ROWS;d++){
+      if(d>daysInMonth){
+        monthsHtml+=`<div class="star-cell empty">★</div>`;
+      } else {
+        const dateObj=new Date(YEAR,m,d);
+        const k=fmt(dateObj);
+        const dm=new Date(dateObj);dm.setHours(0,0,0,0);
+        const isToday=k===todayKey,isFuture=dm>TODAY,isDone=!!recs[k];
+        totalDays++;if(isDone)doneDays++;
+        const cls=['star-cell',isDone?'done':'',isToday?'today':'',isFuture?'future':''].filter(Boolean).join(' ');
+        const title=dateObj.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'});
+        const handler=!isFuture?`onclick="toggleDay('${actName}','${k}',this)"`:'';
+        monthsHtml+=`<div class="${cls}" title="${title}" ${handler}>★</div>`;
+      }
+    }
+    monthsHtml+=`</div></div>`;
+  }
+  monthsHtml+='</div>';
+  const pct=totalDays?Math.round(doneDays/totalDays*100):0;
+  return`<div class="grid-wrap">${dayLabels}${monthsHtml}</div><div class="progress-row"><div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div><div class="progress-text">${doneDays} / ${totalDays} days · ${pct}%</div></div>`;
+}
+
+function renderTabs(){
+  const row=document.getElementById('tabsRow');row.innerHTML='';
+  state.activities.forEach((a,i)=>{const btn=document.createElement('button');btn.className='tab-btn'+(i===activeTab?' active':'');btn.textContent=a;btn.onclick=()=>{activeTab=i;renderTabs();renderPanel()};row.appendChild(btn);});
+  const addBtn=document.createElement('button');addBtn.className='add-tab-btn';addBtn.title='Add activity';addBtn.textContent='+';addBtn.onclick=openManage;row.appendChild(addBtn);
+}
+function renderPanel(){
+  const panel=document.getElementById('panelArea');
+  if(!state.activities.length){panel.innerHTML='<div class="no-activity">No activities yet.</div>';return;}
+  if(activeTab>=state.activities.length)activeTab=Math.max(0,state.activities.length-1);
+  panel.innerHTML=`<div class="panel">${buildGrid(state.activities[activeTab])}</div>`;
+}
+function toggleDay(actName,dateKey,el){
+  if(!state.records[actName])state.records[actName]={};
+  const cur=!!state.records[actName][dateKey];
+  if(cur)delete state.records[actName][dateKey];else state.records[actName][dateKey]=true;
+  save(state);el.classList.toggle('done',!cur);
+  const recs=state.records[actName];
+  let done=0,total=0;
+  for(let m=0;m<12;m++){const dim=new Date(YEAR,m+1,0).getDate();total+=dim;for(let d=1;d<=dim;d++){const k=fmt(new Date(YEAR,m,d));if(recs[k])done++;}}
+  const pct=Math.round(done/total*100);
+  const fill=document.querySelector('.progress-fill');const txt=document.querySelector('.progress-text');
+  if(fill)fill.style.width=pct+'%';if(txt)txt.textContent=`${done} / ${total} days · ${pct}%`;
+}
+function openManage(){renderManageList();document.getElementById('manageModal').classList.add('open');setTimeout(()=>document.getElementById('newActInput').focus(),50);}
+function closeManage(){document.getElementById('manageModal').classList.remove('open');renderTabs();renderPanel();}
+function renderManageList(){
+  const list=document.getElementById('manageList');
+  if(!state.activities.length){list.innerHTML='<div style="font-size:13px;color:#b4b2a9;text-align:center;padding:10px">No activities yet.</div>';return;}
+  list.innerHTML=state.activities.map((a,i)=>`<div class="modal-item"><span>${a.replace(/&/g,'&amp;').replace(/</g,'&lt;')}</span><button class="rm-btn" onclick="confirmDelete(${i})" title="Remove">×</button></div>`).join('');
+}
+function addActivity(){const inp=document.getElementById('newActInput');const name=inp.value.trim();if(!name)return;if(state.activities.includes(name)){inp.select();return;}state.activities.push(name);save(state);inp.value='';renderManageList();}
+document.getElementById('newActInput').addEventListener('keydown',e=>{if(e.key==='Enter')addActivity();});
+function confirmDelete(idx){pendingDelete=idx;document.getElementById('confirmText').textContent=`Remove "${state.activities[idx]}" and all its recorded data? This cannot be undone.`;document.getElementById('confirmModal').classList.add('open');}
+function closeConfirm(){document.getElementById('confirmModal').classList.remove('open');pendingDelete=null;}
+function doDelete(){if(pendingDelete===null)return;const name=state.activities[pendingDelete];state.activities.splice(pendingDelete,1);delete state.records[name];if(activeTab>=state.activities.length)activeTab=Math.max(0,state.activities.length-1);save(state);closeConfirm();renderManageList();renderTabs();renderPanel();}
+document.getElementById('manageModal').addEventListener('click',e=>{if(e.target===e.currentTarget)closeManage();});
+document.getElementById('confirmModal').addEventListener('click',e=>{if(e.target===e.currentTarget)closeConfirm();});
+renderTabs();renderPanel();
+</script>
+</body>
+</html>
