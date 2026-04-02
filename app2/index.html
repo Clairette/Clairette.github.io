@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Workday Timer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0d0f14;
+    --surface: #14171f;
+    --border: rgba(255,255,255,0.07);
+    --text: #e8e4da;
+    --muted: #6b6f7a;
+    --accent1: #ff6b6b;
+    --accent2: #ffa94d;
+    --accent3: #ffd43b;
+    --accent4: #69db7c;
+    --accent5: #74c0fc;
+    --accent6: #cc5de8;
+    --glow: rgba(255, 107, 107, 0.15);
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 1rem;
+    overflow-x: hidden;
+  }
+
+  /* Background grain */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    background-size: 200px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .app {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 420px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2rem;
+  }
+
+  /* Header */
+  .header {
+    text-align: center;
+  }
+  .header h1 {
+    font-family: 'DM Serif Display', serif;
+    font-size: clamp(1.6rem, 5vw, 2rem);
+    letter-spacing: -0.02em;
+    color: var(--text);
+  }
+  .header h1 em {
+    font-style: italic;
+    color: var(--accent2);
+  }
+  .header p {
+    font-size: 0.7rem;
+    color: var(--muted);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-top: 0.3rem;
+  }
+
+  /* Dial container */
+  .dial-wrap {
+    position: relative;
+    width: min(320px, 85vw);
+    aspect-ratio: 1;
+    filter: drop-shadow(0 0 40px var(--glow));
+  }
+
+  .dial-wrap svg {
+    width: 100%;
+    height: 100%;
+    transform: rotate(-90deg);
+  }
+
+  /* Track ring */
+  .ring-track {
+    fill: none;
+    stroke: var(--surface);
+    stroke-width: 18;
+  }
+
+  /* Progress arc â€” drawn via JS */
+  .ring-progress {
+    fill: none;
+    stroke-width: 18;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 1s linear, stroke 0.6s ease;
+  }
+
+  /* Tick marks */
+  .tick { stroke: var(--muted); stroke-width: 1; opacity: 0.4; }
+  .tick-major { stroke: var(--muted); stroke-width: 2; opacity: 0.7; }
+
+  /* Center display */
+  .dial-center {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.1rem;
+  }
+
+  .time-display {
+    font-family: 'DM Mono', monospace;
+    font-size: clamp(2.2rem, 9vw, 3rem);
+    font-weight: 300;
+    letter-spacing: -0.03em;
+    color: var(--text);
+    line-height: 1;
+    transition: color 0.4s;
+  }
+
+  .time-label {
+    font-size: 0.6rem;
+    letter-spacing: 0.2em;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+
+  .percent-display {
+    font-size: 0.75rem;
+    color: var(--accent2);
+    margin-top: 0.4rem;
+    letter-spacing: 0.05em;
+    transition: color 0.4s;
+  }
+
+  .session-tag {
+    margin-top: 0.5rem;
+    font-size: 0.6rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--muted);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 0.2rem 0.6rem;
+    border-radius: 100px;
+  }
+
+  /* Phase bar */
+  .phase-bar {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 1rem 1.2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+  }
+
+  .phase-label {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.65rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .phase-label span:last-child {
+    color: var(--accent4);
+    font-weight: 500;
+  }
+
+  .phase-segments {
+    display: flex;
+    gap: 3px;
+    height: 6px;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .segment {
+    flex: 1;
+    border-radius: 2px;
+    background: rgba(255,255,255,0.06);
+    transition: background 0.5s ease;
+  }
+
+  .segment.work.done { background: var(--accent5); }
+  .segment.work.active { background: var(--accent2); animation: pulse-seg 1.5s ease-in-out infinite; }
+  .segment.break.done { background: var(--accent4); }
+  .segment.break.active { background: var(--accent4); animation: pulse-seg 1.5s ease-in-out infinite; }
+
+  @keyframes pulse-seg {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+
+  /* Stats row */
+  .stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 0.5rem;
+    width: 100%;
+  }
+
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 0.8rem 0.6rem;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .stat-value {
+    font-size: 1.15rem;
+    font-weight: 500;
+    color: var(--text);
+    line-height: 1;
+  }
+
+  .stat-key {
+    font-size: 0.55rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  /* Controls */
+  .controls {
+    display: flex;
+    gap: 0.75rem;
+    width: 100%;
+    align-items: center;
+  }
+
+  .btn {
+    border: none;
+    cursor: pointer;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    border-radius: 12px;
+    transition: all 0.2s;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .btn:active { transform: scale(0.96); }
+
+  .btn-primary {
+    flex: 1;
+    padding: 1rem;
+    background: var(--accent2);
+    color: #0d0f14;
+    font-weight: 500;
+    font-size: 0.8rem;
+  }
+  .btn-primary:hover { background: #ffbf69; }
+  .btn-primary.running {
+    background: var(--accent1);
+  }
+  .btn-primary.running:hover { background: #ff8787; }
+
+  .btn-secondary {
+    padding: 1rem 1.2rem;
+    background: var(--surface);
+    color: var(--muted);
+    border: 1px solid var(--border);
+  }
+  .btn-secondary:hover { color: var(--text); border-color: rgba(255,255,255,0.15); }
+
+  /* Status dot */
+  .status-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.62rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--muted);
+    transition: background 0.3s;
+  }
+
+  .dot.running {
+    background: var(--accent4);
+    box-shadow: 0 0 8px var(--accent4);
+    animation: pulse-dot 1.5s ease-in-out infinite;
+  }
+  .dot.paused { background: var(--accent3); }
+
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  /* Complete overlay */
+  .complete-msg {
+    display: none;
+    text-align: center;
+    padding: 1rem;
+    background: linear-gradient(135deg, rgba(105,219,124,0.1), rgba(116,192,252,0.1));
+    border: 1px solid rgba(105,219,124,0.3);
+    border-radius: 16px;
+    width: 100%;
+  }
+  .complete-msg.show { display: block; }
+  .complete-msg h2 {
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.4rem;
+    color: var(--accent4);
+    margin-bottom: 0.4rem;
+  }
+  .complete-msg p { font-size: 0.7rem; color: var(--muted); letter-spacing: 0.1em; }
+
+  /* Responsive */
+  @media (max-width: 380px) {
+    .stats { grid-template-columns: 1fr 1fr 1fr; }
+    .stat-card { padding: 0.6rem 0.4rem; }
+    .stat-value { font-size: 1rem; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="header">
+    <h1>Work<em>day</em></h1>
+    <p>8 â€” hour focus timer</p>
+  </div>
+
+  <div class="dial-wrap">
+    <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" id="dialSvg">
+      <!-- Tick marks generated by JS -->
+      <g id="ticks"></g>
+      <!-- Track -->
+      <circle class="ring-track" cx="100" cy="100" r="82"/>
+      <!-- Progress -->
+      <circle class="ring-progress" id="progressRing" cx="100" cy="100" r="82"/>
+    </svg>
+    <div class="dial-center">
+      <div class="time-display" id="timeDisplay">08:00:00</div>
+      <div class="time-label">remaining</div>
+      <div class="percent-display" id="pctDisplay">0% done</div>
+      <div class="session-tag" id="sessionTag">Work Session 1</div>
+    </div>
+  </div>
+
+  <div class="phase-bar">
+    <div class="phase-label">
+      <span>Daily Progress</span>
+      <span id="phaseStatus">â€” not started</span>
+    </div>
+    <div class="phase-segments" id="segments"></div>
+  </div>
+
+  <div class="stats">
+    <div class="stat-card">
+      <div class="stat-value" id="statPomodoros">0</div>
+      <div class="stat-key">Pomodoros</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" id="statFocused">0h 0m</div>
+      <div class="stat-key">Focused</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" id="statBreaks">0</div>
+      <div class="stat-key">Breaks</div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button class="btn btn-secondary" id="resetBtn" onclick="resetTimer()">Reset</button>
+    <button class="btn btn-primary" id="mainBtn" onclick="toggleTimer()">Start</button>
+    <button class="btn btn-secondary" id="pauseBtn" onclick="pauseTimer()" style="display:none">Pause</button>
+  </div>
+
+  <div class="status-row">
+    <div class="dot" id="statusDot"></div>
+    <span id="statusText">Ready to begin your workday</span>
+  </div>
+
+  <div class="complete-msg" id="completeMsg">
+    <h2>Day complete ðŸŽ‰</h2>
+    <p>You've finished your 8-hour workday. Well done!</p>
+  </div>
+
+</div>
+
+<script>
+// â”€â”€â”€ Config â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+const WORK_MIN   = 25;
+const SHORT_MIN  = 5;
+const LONG_MIN   = 15;
+const LONG_EVERY = 4;  // long break after every 4 pomodoros
+const TOTAL_SEC  = 8 * 60 * 60; // 8 hours
+
+// â”€â”€â”€ State â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+let state = loadState() || freshState();
+
+function freshState() {
+  return {
+    elapsed: 0,           // total seconds elapsed in workday
+    running: false,
+    phaseElapsed: 0,      // seconds elapsed in current phase
+    phaseType: 'work',    // 'work' | 'short' | 'long'
+    pomodorosDone: 0,
+    breaksDone: 0,
+    focusedSec: 0,
+    segments: [],         // array of {type, done: bool}
+    startedAt: null,
+    complete: false,
+  };
+}
+
+// Build initial segments for the day
+// A full 8h day ~= 16 work + 3 long breaks + 12 short breaks
+// We'll generate them lazily; for display we'll show chunks
+const PHASE_SEQUENCE = buildPhaseSequence();
+
+function buildPhaseSequence() {
+  const seq = [];
+  for (let i = 1; i <= 16; i++) {
+    seq.push({ type: 'work', dur: WORK_MIN * 60 });
+    if (i % LONG_EVERY === 0) {
+      seq.push({ type: 'long', dur: LONG_MIN * 60 });
+    } else {
+      seq.push({ type: 'short', dur: SHORT_MIN * 60 });
+    }
+  }
+  return seq;
+}
+
+// â”€â”€â”€ SVG Setup â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+const R = 82, CX = 100, CY = 100;
+const CIRC = 2 * Math.PI * R;
+
+const progressRing = document.getElementById('progressRing');
+progressRing.style.strokeDasharray = CIRC;
+progressRing.style.strokeDashoffset = CIRC;
+
+// Draw tick marks
+(function drawTicks() {
+  const g = document.getElementById('ticks');
+  const total = 48; // one tick per 10 min in 8h
+  for (let i = 0; i < total; i++) {
+    const angle = (i / total) * 2 * Math.PI - Math.PI / 2;
+    const isMajor = i % 4 === 0;
+    const inner = isMajor ? R + 12 : R + 14;
+    const outer = R + 18;
+    const x1 = CX + inner * Math.cos(angle);
+    const y1 = CY + inner * Math.sin(angle);
+    const x2 = CX + outer * Math.cos(angle);
+    const y2 = CY + outer * Math.sin(angle);
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    line.setAttribute('x1', x1); line.setAttribute('y1', y1);
+    line.setAttribute('x2', x2); line.setAttribute('y2', y2);
+    line.setAttribute('class', isMajor ? 'tick-major' : 'tick');
+    g.appendChild(line);
+  }
+})();
+
+// â”€â”€â”€ Segments display â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+function buildSegmentsUI() {
+  const container = document.getElementById('segments');
+  container.innerHTML = '';
+  // Show first 20 phases (work+break alternating)
+  const shown = PHASE_SEQUENCE.slice(0, 20);
+  shown.forEach((ph, i) => {
+    const div = document.createElement('div');
+    div.className = 'segment ' + (ph.type === 'work' ? 'work' : 'break');
+    div.id = 'seg-' + i;
+    container.appendChild(div);
+  });
+}
+
+buildSegmentsUI();
+
+function updateSegments() {
+  let secAcc = 0;
+  PHASE_SEQUENCE.slice(0, 20).forEach((ph, i) => {
+    const el = document.getElementById('seg-' + i);
+    if (!el) return;
+    const phEnd = secAcc + ph.dur;
+    el.className = 'segment ' + (ph.type === 'work' ? 'work' : 'break');
+    if (state.elapsed >= phEnd) {
+      el.classList.add('done');
+    } else if (state.elapsed >= secAcc && state.elapsed < phEnd) {
+      el.classList.add('active');
+    }
+    secAcc = phEnd;
+  });
+}
+
+// â”€â”€â”€ Timer logic â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+let ticker = null;
+
+function toggleTimer() {
+  if (state.complete) return;
+  if (state.running) {
+    pauseTimer();
+  } else {
+    state.running = true;
+    state.startedAt = Date.now();
+    saveState();
+    tick();
+    ticker = setInterval(tick, 1000);
+    updateUI();
+  }
+}
+
+function pauseTimer() {
+  if (!state.running) return;
+  clearInterval(ticker);
+  state.running = false;
+  saveState();
+  updateUI();
+}
+
+function resetTimer() {
+  clearInterval(ticker);
+  state = freshState();
+  saveState();
+  updateUI();
+  document.getElementById('completeMsg').classList.remove('show');
+}
+
+function tick() {
+  if (!state.running) return;
+  state.elapsed++;
+  state.phaseElapsed++;
+  // Track focus seconds only in work phases
+  if (currentPhase().type === 'work') state.focusedSec++;
+
+  // Check phase completion
+  if (state.phaseElapsed >= currentPhase().dur) {
+    completePhase();
+  }
+
+  // Check day complete
+  if (state.elapsed >= TOTAL_SEC) {
+    state.elapsed = TOTAL_SEC;
+    state.running = false;
+    state.complete = true;
+    clearInterval(ticker);
+  }
+
+  saveState();
+  updateUI();
+}
+
+function currentPhase() {
+  let secAcc = 0;
+  for (const ph of PHASE_SEQUENCE) {
+    if (state.elapsed < secAcc + ph.dur) return ph;
+    secAcc += ph.dur;
+  }
+  return PHASE_SEQUENCE[PHASE_SEQUENCE.length - 1];
+}
+
+function currentPhaseIndex() {
+  let secAcc = 0;
+  for (let i = 0; i < PHASE_SEQUENCE.length; i++) {
+    if (state.elapsed < secAcc + PHASE_SEQUENCE[i].dur) return i;
+    secAcc += PHASE_SEQUENCE[i].dur;
+  }
+  return PHASE_SEQUENCE.length - 1;
+}
+
+function completePhase() {
+  const ph = currentPhase();
+  if (ph.type === 'work') {
+    state.pomodorosDone++;
+  } else {
+    state.breaksDone++;
+  }
+  state.phaseElapsed = 0;
+}
+
+// â”€â”€â”€ UI Update â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+const COLORS = [
+  '#ff6b6b','#ff9f43','#ffd43b','#69db7c',
+  '#74c0fc','#cc5de8','#ffa94d','#ff6b6b'
+];
+
+function updateUI() {
+  const remaining = Math.max(0, TOTAL_SEC - state.elapsed);
+  const pct = state.elapsed / TOTAL_SEC;
+
+  // Time display
+  document.getElementById('timeDisplay').textContent = fmtTime(remaining);
+  document.getElementById('pctDisplay').textContent = Math.floor(pct * 100) + '% done';
+
+  // Arc
+  const offset = CIRC * (1 - pct);
+  progressRing.style.strokeDashoffset = offset;
+  // Color: gradient through phases
+  const colorIdx = Math.min(Math.floor(pct * COLORS.length), COLORS.length - 1);
+  progressRing.style.stroke = COLORS[colorIdx];
+  document.querySelector('.percent-display').style.color = COLORS[colorIdx];
+  // Update glow
+  document.documentElement.style.setProperty('--glow', hexToGlow(COLORS[colorIdx]));
+
+  // Phase info
+  const phIdx = currentPhaseIndex();
+  const ph = PHASE_SEQUENCE[phIdx];
+  const workN = Math.floor(phIdx / 2) + 1;
+  let sessionLabel = '';
+  if (ph.type === 'work') sessionLabel = 'Work Session ' + workN;
+  else if (ph.type === 'long') sessionLabel = 'Long Break â˜•';
+  else sessionLabel = 'Short Break ðŸŒ¿';
+  document.getElementById('sessionTag').textContent = sessionLabel;
+
+  // Phase bar
+  const phaseNames = { work: 'Focus', short: 'Break', long: 'Long Break' };
+  const phRem = ph.dur - state.phaseElapsed;
+  document.getElementById('phaseStatus').textContent =
+    phaseNames[ph.type] + ' Â· ' + fmtMin(phRem);
+
+  updateSegments();
+
+  // Stats
+  const fm = state.focusedSec;
+  const fh = Math.floor(fm / 3600);
+  const fmin = Math.floor((fm % 3600) / 60);
+  document.getElementById('statPomodoros').textContent = state.pomodorosDone;
+  document.getElementById('statFocused').textContent = fh + 'h ' + fmin + 'm';
+  document.getElementById('statBreaks').textContent = state.breaksDone;
+
+  // Buttons
+  const mainBtn = document.getElementById('mainBtn');
+  const pauseBtn = document.getElementById('pauseBtn');
+  if (state.complete) {
+    mainBtn.textContent = 'Done!';
+    mainBtn.classList.remove('running');
+    pauseBtn.style.display = 'none';
+    document.getElementById('completeMsg').classList.add('show');
+  } else if (state.running) {
+    mainBtn.style.display = 'none';
+    pauseBtn.style.display = 'block';
+  } else {
+    mainBtn.style.display = 'block';
+    pauseBtn.style.display = 'none';
+    mainBtn.textContent = state.elapsed > 0 ? 'Resume' : 'Start';
+    mainBtn.classList.remove('running');
+  }
+
+  // Status dot
+  const dot = document.getElementById('statusDot');
+  const stxt = document.getElementById('statusText');
+  dot.className = 'dot' + (state.running ? ' running' : state.elapsed > 0 ? ' paused' : '');
+  stxt.textContent = state.complete
+    ? 'Workday complete!'
+    : state.running
+    ? (ph.type === 'work' ? 'Focusingâ€¦' : 'On a breakâ€¦')
+    : state.elapsed > 0
+    ? 'Paused'
+    : 'Ready to begin your workday';
+}
+
+// â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+function fmtTime(sec) {
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = sec % 60;
+  return pad(h) + ':' + pad(m) + ':' + pad(s);
+}
+function fmtMin(sec) {
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return pad(m) + ':' + pad(s);
+}
+function pad(n) { return String(n).padStart(2, '0'); }
+
+function hexToGlow(hex) {
+  const r = parseInt(hex.slice(1,3),16);
+  const g = parseInt(hex.slice(3,5),16);
+  const b = parseInt(hex.slice(5,7),16);
+  return `rgba(${r},${g},${b},0.18)`;
+}
+
+// â”€â”€â”€ Persistence â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+function saveState() {
+  try {
+    sessionStorage.setItem('workday_timer', JSON.stringify(state));
+  } catch(e) {}
+}
+
+function loadState() {
+  try {
+    const raw = sessionStorage.getItem('workday_timer');
+    if (!raw) return null;
+    const s = JSON.parse(raw);
+    // If it was running when saved, keep it paused (we don't know how long was elapsed)
+    s.running = false;
+    return s;
+  } catch(e) { return null; }
+}
+
+// â”€â”€â”€ Keyboard support â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+document.addEventListener('keydown', e => {
+  if (e.code === 'Space') { e.preventDefault(); toggleTimer(); }
+  if (e.code === 'KeyR' && !state.running) resetTimer();
+});
+
+// â”€â”€â”€ Init â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+updateUI();
+</script>
+</body>
+</html>
