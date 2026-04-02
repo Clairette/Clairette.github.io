@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Daily Flow Â· Activity Tracker</title>
+  <title>Daily Flow · Activity Tracker</title>
   <style>
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
     body{font-family:Helvetica,Arial,sans-serif;background:#f7f5f2;color:#1e1d1b;min-height:100vh}
@@ -88,7 +88,7 @@
 <div class="app">
   <div class="header">
     <h1>Daily <span>Flow</span></h1>
-    <p class="tagline">Track your habits across the year â€” click a star to mark the day.</p>
+    <p class="tagline">Track your habits across the year — click a star to mark the day.</p>
   </div>
   <div class="tabs-row" id="tabsRow"></div>
   <div class="manage-row">
@@ -101,11 +101,11 @@
   <div class="modal">
     <div class="modal-header">
       <h2>Activities</h2>
-      <button class="modal-close" onclick="closeManage()">âœ•</button>
+      <button class="modal-close" onclick="closeManage()">✕</button>
     </div>
     <div class="modal-list" id="manageList"></div>
     <div class="add-row">
-      <input id="newActInput" placeholder="New activity nameâ€¦" maxlength="40" />
+      <input id="newActInput" placeholder="New activity name…" maxlength="40" />
       <button onclick="addActivity()">Add</button>
     </div>
   </div>
@@ -129,16 +129,16 @@ const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov',
 const MAX_ROWS=31;
 
 const MILESTONES=[
-  {at:15,  badge:'ðŸŒ¿ First leaf!',      burst:'ðŸƒ'},
-  {at:30,  badge:'ðŸŒ± Two leaves!',       burst:'ðŸŒ¿'},
-  {at:50,  badge:'ðŸŒ³ Growing strong!',   burst:'ðŸ€'},
-  {at:75,  badge:'ðŸŒ¸ First bud!',        burst:'ðŸŒº'},
-  {at:100, badge:'ðŸŒ» In full bloom!',    burst:'ðŸŒ»'},
-  {at:150, badge:'ðŸ‚ Branching out!',    burst:'ðŸŒ²'},
-  {at:200, badge:'ðŸ† Unstoppable!',      burst:'âœ¨'},
-  {at:250, badge:'ðŸŒŸ Legendary!',        burst:'ðŸŒŸ'},
-  {at:300, badge:'ðŸ’« Year champion!',    burst:'ðŸŽŠ'},
-  {at:365, badge:'ðŸŽ‰ Full year done!',   burst:'ðŸŽ†'},
+  {at:15,  badge:'🌿 First leaf!',      burst:'🍃'},
+  {at:30,  badge:'🌱 Two leaves!',       burst:'🌿'},
+  {at:50,  badge:'🌳 Growing strong!',   burst:'🍀'},
+  {at:75,  badge:'🌸 First bud!',        burst:'🌺'},
+  {at:100, badge:'🌻 In full bloom!',    burst:'🌻'},
+  {at:150, badge:'🍂 Branching out!',    burst:'🌲'},
+  {at:200, badge:'🏆 Unstoppable!',      burst:'✨'},
+  {at:250, badge:'🌟 Legendary!',        burst:'🌟'},
+  {at:300, badge:'💫 Year champion!',    burst:'🎊'},
+  {at:365, badge:'🎉 Full year done!',   burst:'🎆'},
 ];
 
 function fmt(d){return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}
@@ -217,7 +217,7 @@ function buildGrid(actName){
     monthsHtml+=`<div class="month-col"><div class="month-name">${MONTHS[m]}</div><div class="month-stars">`;
     for(let d=1;d<=MAX_ROWS;d++){
       if(d>daysInMonth){
-        monthsHtml+=`<div class="star-cell empty">â˜…</div>`;
+        monthsHtml+=`<div class="star-cell empty">★</div>`;
       } else {
         const dateObj=new Date(YEAR,m,d);
         const k=fmt(dateObj);
@@ -227,7 +227,7 @@ function buildGrid(actName){
         const cls=['star-cell',isDone?'done':'',isToday?'today':'',isFuture?'future':''].filter(Boolean).join(' ');
         const title=dateObj.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'});
         const handler=!isFuture?`onclick="toggleDay('${actName}','${k}',this)"`:'';
-        monthsHtml+=`<div class="${cls}" title="${title}" ${handler}>â˜…</div>`;
+        monthsHtml+=`<div class="${cls}" title="${title}" ${handler}>★</div>`;
       }
     }
     monthsHtml+=`</div></div>`;
@@ -281,7 +281,7 @@ function closeManage(){document.getElementById('manageModal').classList.remove('
 function renderManageList(){
   const list=document.getElementById('manageList');
   if(!state.activities.length){list.innerHTML='<div style="font-size:16px;color:#b4b2a9;text-align:center;padding:10px">No activities yet.</div>';return;}
-  list.innerHTML=state.activities.map((a,i)=>`<div class="modal-item"><span>${a.replace(/&/g,'&amp;').replace(/</g,'&lt;')}</span><button class="rm-btn" onclick="confirmDelete(${i})" title="Remove">Ã—</button></div>`).join('');
+  list.innerHTML=state.activities.map((a,i)=>`<div class="modal-item"><span>${a.replace(/&/g,'&amp;').replace(/</g,'&lt;')}</span><button class="rm-btn" onclick="confirmDelete(${i})" title="Remove">×</button></div>`).join('');
 }
 function addActivity(){const inp=document.getElementById('newActInput');const name=inp.value.trim();if(!name)return;if(state.activities.includes(name)){inp.select();return;}state.activities.push(name);save(state);inp.value='';renderManageList();}
 document.getElementById('newActInput').addEventListener('keydown',e=>{if(e.key==='Enter')addActivity();});
