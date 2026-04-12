@@ -24,7 +24,7 @@
   --ff:        'Figtree', sans-serif;
 }
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html, body { height: 100%; overflow: hidden; }
+html, body { height: 100%; min-height: 100dvh; overflow: hidden; }
 body {
   font-family: var(--ff);
   background: var(--bg);
@@ -49,7 +49,6 @@ body {
   display: none;
   flex-direction: column;
   transition: background-color 0.7s ease;
-  position: relative;
 }
 #session-screen.active { display: flex; }
 
@@ -166,17 +165,24 @@ body {
 #popup-track { height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; }
 #popup-fill { height: 100%; background: var(--muted); border-radius: 2px; width: 100%; }
 
-/* ── SESSION: PAUSED OVERLAY ── */
 #paused-ov {
   position: absolute; inset: 0;
   align-items: center; justify-content: center;
-  flex-direction: column; gap: 6px;
-  background: rgba(250,249,247,0.9);
+  flex-direction: column; gap: 10px;
+  background: rgba(250,249,247,0.92);
   z-index: 15; display: none;
+  cursor: pointer;
 }
 #paused-ov.show { display: flex; }
 #paused-ov .p-label { font-size: 28px; font-weight: 500; }
-#paused-ov .p-sub { font-size: 14px; color: var(--muted); }
+#paused-ov .p-sub { font-size: 14px; color: var(--muted); margin-bottom: 8px; }
+#btn-resume-ov {
+  padding: 14px 36px;
+  border-radius: 12px; border: none;
+  background: var(--text); color: var(--bg);
+  font-family: var(--ff); font-size: 15px; font-weight: 500;
+  cursor: pointer;
+}
 
 /* ── SESSION: IDLE ── */
 #s-idle {
@@ -337,10 +343,11 @@ body {
     <div id="popup-track"><div id="popup-fill"></div></div>
   </div>
 
-  <!-- Paused overlay -->
-  <div id="paused-ov">
+  <!-- Paused overlay — tap anywhere to resume -->
+  <div id="paused-ov" onclick="resumeSession()">
     <span class="p-label">Paused</span>
-    <span class="p-sub">Tap resume to continue</span>
+    <span class="p-sub">HR monitor still reading</span>
+    <button id="btn-resume-ov">Resume session</button>
   </div>
 
   <!-- Idle state -->
@@ -699,15 +706,13 @@ function nextPhase() {
 function pauseSession() {
   if (!state.sess) return;
   state.sess.paused = true;
-  document.getElementById('btn-pr').textContent = 'Resume';
   document.getElementById('paused-ov').classList.add('show');
 }
 
 function resumeSession() {
   if (!state.sess) return;
   state.sess.paused = false;
-  state.sess.lastTick = Date.now(); // don't count pause time
-  document.getElementById('btn-pr').textContent = 'Pause';
+  state.sess.lastTick = Date.now();
   document.getElementById('paused-ov').classList.remove('show');
 }
 
