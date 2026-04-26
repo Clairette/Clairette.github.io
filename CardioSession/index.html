@@ -209,15 +209,15 @@ body {
 
 .hr-block {
   flex: 1; display: flex; flex-direction: column;
-  align-items: center; justify-content: center; gap: 6px;
+  align-items: center; justify-content: center; gap: 4px;
 }
-.hr-row { display: flex; align-items: baseline; gap: 10px; }
+.hr-row { display: flex; align-items: center; gap: 16px; }
 #s-hr {
   font-size: 100px; font-weight: 600; line-height: 1;
   font-variant-numeric: tabular-nums; letter-spacing: -3px;
 }
 #s-arrow {
-  font-size: 36px; color: var(--faint);
+  font-size: 80px; color: var(--faint);
   line-height: 1; transition: color 0.3s;
 }
 #s-arrow.up  { color: var(--coral); }
@@ -451,6 +451,7 @@ const state = {
   sess: null,
   history: [],
   lastResult: null,
+  levels: { interval: [11, 11, 11], recovery: 5 },
 };
 
 // ═══════ STORAGE ═══════
@@ -460,6 +461,51 @@ function loadHistory() {
 }
 function saveHistory() {
   localStorage.setItem('ss-hist', JSON.stringify(state.history));
+}
+
+// ═══════ ADAPTIVE LEVELS ═══════
+// Defaults: interval level 11, recovery level 5
+function loadLevels() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('ss-levels'));
+    if (saved && saved.interval && saved.recovery !== undefined) {
+      state.levels = saved;
+    } else {
+      state.levels = { interval: [11, 11, 11], recovery: 5 };
+    }
+  } catch(e) {
+    state.levels = { interval: [11, 11, 11], recovery: 5 };
+  }
+}
+function saveLevels() {
+  localStorage.setItem('ss-levels', JSON.stringify(state.levels));
+}
+
+function computeNextLevels(result) {
+  const { intervalZone, aboveZone, recoveryHigh } = result;
+  const lvl = [...state.levels.interval];
+
+  for (let i = 0; i < 3; i++) {
+    const above = aboveZone?.[i] ?? 0;
+    const inZ   = intervalZone[i];
+    if (above > 0.2) {
+      // Spent more than 20% of interval above ceiling — too hard
+      lvl[i] = Math.max(7, lvl[i] - 1);
+    } else if (inZ < 0.4) {
+      // Barely reached zone — too easy
+      lvl[i] = Math.min(20, lvl[i] + 1);
+    } else if (inZ >= 0.8 && above < 0.05) {
+      // Nailing it cleanly — ready to push up
+      lvl[i] = Math.min(20, lvl[i] + 1);
+    }
+    // Between 0.4–0.8 in zone with manageable overshoot → keep same level
+  }
+  state.levels.interval = lvl;
+
+  // Recovery: if either recovery phase had HR > 140 for > 40% of the time,
+  // suggest slightly higher active recovery level to aid lactate clearance
+  const highRecovery = (recoveryHigh ?? []).some(v => v > 0.4);
+  state.levels.recovery = highRecovery ? 6 : 5;
 }
 
 // ═══════ NAVIGATION ═══════
@@ -646,7 +692,9 @@ function startSession() {
   state.sess = {
     running: true, paused: false,
     pi: 0, pe: 0, te: 0,
-    inZone: new Array(PHASES.length).fill(0),
+    inZone:      new Array(PHASES.length).fill(0),
+    aboveZone:   new Array(PHASES.length).fill(0),
+    recoveryHigh: new Array(PHASES.length).fill(0), // time HR>140 during rest phases
     peak: 0,
     cueSaid: false, countdown: null,
     lastTick: Date.now(),
@@ -677,7 +725,9 @@ function tick() {
 
   if (hr > 0) {
     if (hr >= phase.lo && hr <= phase.hi) state.sess.inZone[state.sess.pi] += dt;
-    if (hr > state.sess.peak) state.sess.peak = hr;
+    if (hr > phase.hi)                    state.sess.aboveZone[state.sess.pi] += dt;
+    if (phase.type === 'rest' && hr > 140) state.sess.recoveryHigh[state.sess.pi] += dt;
+    if (hr > state.sess.peak)             state.sess.peak = hr;
   }
 
   // Show cue 30s into each interval
@@ -731,19 +781,33 @@ function endSession() {
   if (!state.sess) return;
   state.sess.running = false;
 
-  const intervalZone = [1, 3, 5].map(i =>
-    PHASES[i].dur > 0 ? state.sess.inZone[i] / PHASES[i].dur : 0);
+  // Interval indices in PHASES: 1, 3, 5
+  const intervalZone  = [1,3,5].map(i =>
+    PHASES[i].dur > 0 ? state.sess.inZone[i]    / PHASES[i].dur : 0);
+  const aboveZone     = [1,3,5].map(i =>
+    PHASES[i].dur > 0 ? state.sess.aboveZone[i] / PHASES[i].dur : 0);
+  // Recovery indices: 2, 4
+  const recoveryHigh  = [2,4].map(i =>
+    PHASES[i].dur > 0 ? state.sess.recoveryHigh[i] / PHASES[i].dur : 0);
 
   const result = {
     id: Date.now(),
     date: new Date().toISOString(),
     peakHR: state.sess.peak,
     intervalZone,
+    aboveZone,
+    recoveryHigh,
+    levelsUsed: [...state.levels.interval],
+    recoveryUsed: state.levels.recovery,
     duration: Math.round(state.sess.te),
   };
   state.history.push(result);
   state.lastResult = result;
   saveHistory();
+
+  // Adapt levels for next session
+  computeNextLevels(result);
+  saveLevels();
 
   document.getElementById('s-dot').classList.remove('show');
   speak('Session complete. Well done.');
@@ -772,7 +836,16 @@ function showPopup(phase) {
   if (popupTimer) clearTimeout(popupTimer);
   const popup = document.getElementById('popup');
   document.getElementById('popup-name').textContent = phase.name;
-  document.getElementById('popup-lvl').textContent  = `Suggested level ${phase.level}`;
+
+  // Use personalised level if available, otherwise fall back to default range
+  let lvlText = `Level ${phase.level}`;
+  if (phase.type === 'work') {
+    const iIdx = [1,3,5].indexOf(state.sess.pi);
+    if (iIdx >= 0) lvlText = `Level ${state.levels.interval[iIdx]} · personalised`;
+  } else if (phase.name.startsWith('Recovery')) {
+    lvlText = `Level ${state.levels.recovery} · personalised`;
+  }
+  document.getElementById('popup-lvl').textContent = lvlText;
   const fill = document.getElementById('popup-fill');
   fill.style.transition = 'none';
   fill.style.width = '100%';
@@ -858,28 +931,42 @@ function realSessions(history) {
 }
 
 function getSuggestion(result, history) {
-  const z    = result.intervalZone;
-  const real = realSessions(history);
+  const z     = result.intervalZone;
+  const above = result.aboveZone ?? [0,0,0];
+  const real  = realSessions(history);
 
-  // Priority 1: Any interval below 40% in zone — genuinely didn't reach target
+  // Priority 1: Significant time above ceiling — overshooting
+  if (above.some(v => v > 0.2)) {
+    const i = above.findIndex(v => v > 0.2) + 1;
+    return { good: false, text:
+      `Interval ${i} pushed above the target zone for too long — your level was slightly high. The app has already adjusted your level down by 1 for next session.` };
+  }
+
+  // Priority 2: Any interval below 40% in zone — not reaching target
   if (z.some(v => v < 0.4)) {
     return { good: false, text:
-      'Your HR stayed below the target zone during at least one interval. Try starting your intervals at level 13 next session to get into the zone sooner.' };
+      'Your HR stayed below the target zone during at least one interval. The app has nudged your level up for next session to help you reach zone sooner.' };
   }
 
-  // Priority 2: Interval 1 between 40–65% — close but needs an earlier push
+  // Priority 3: Interval 1 between 40–65% — reaching zone but slowly
   if (z[0] < 0.65) {
     return { good: false, text:
-      'Interval 1 took a while to reach the target zone — your HR got there but not for long enough. Try bumping the level up by 1 or 2 sooner in that interval next time.' };
+      'Interval 1 reached the target zone but took a while to get there. Try increasing your level right from the start of the interval rather than building up gradually.' };
   }
 
-  // Priority 3: Third interval dropped significantly vs first
+  // Priority 4: Recovery HR stayed high
+  if ((result.recoveryHigh ?? []).some(v => v > 0.4)) {
+    return { good: false, text:
+      'Your HR stayed high during recovery — the app has adjusted your recovery level up slightly. Active movement helps clear lactate faster than slowing to a near standstill.' };
+  }
+
+  // Priority 5: Third interval dropped significantly vs first
   if (z[2] < z[0] - 0.2) {
     return { good: false, text:
       'Your third interval was harder to sustain than the first. Try adding 30 extra seconds of recovery before it next session.' };
   }
 
-  // Priority 4: Positive trend across real sessions
+  // Priority 6: Positive trend across real sessions
   if (z.every(v => v >= 0.8) && real.length >= 4) {
     const avg = s => s.intervalZone.reduce((a,b) => a+b, 0) / 3;
     const oldest = real[Math.max(0, real.length - 4)];
@@ -941,6 +1028,20 @@ function renderRecap() {
       }).join('')}
     </div>` : '';
 
+  const nextLvlHtml = `
+    <p class="sec-lbl" style="margin-bottom:10px">Next session levels</p>
+    <div style="display:flex; gap:10px; margin-bottom:24px;">
+      ${state.levels.interval.map((l,i) => `
+        <div style="flex:1; border:1px solid var(--border); border-radius:12px; padding:12px; text-align:center;">
+          <div style="font-size:22px; font-weight:600;">${l}</div>
+          <div style="font-size:11px; color:var(--muted); margin-top:2px;">Interval ${i+1}</div>
+        </div>`).join('')}
+      <div style="flex:1; border:1px solid var(--border); border-radius:12px; padding:12px; text-align:center;">
+        <div style="font-size:22px; font-weight:600;">${state.levels.recovery}</div>
+        <div style="font-size:11px; color:var(--muted); margin-top:2px;">Recovery</div>
+      </div>
+    </div>`;
+
   el.innerHTML = `
     <div class="recap-hdr">
       <div class="recap-title">Session recap</div>
@@ -959,6 +1060,7 @@ function renderRecap() {
     <p class="sec-lbl" style="margin-bottom:12px">Interval performance</p>
     <div class="int-bars">${intBars}</div>
     ${sugHtml}
+    ${nextLvlHtml}
     ${histHtml}`;
 }
 
@@ -1024,6 +1126,7 @@ document.getElementById('file-input').addEventListener('change', e => {
 
 // ═══════ INIT ═══════
 loadHistory();
+loadLevels();
 renderSetup();
 </script>
 </body>
