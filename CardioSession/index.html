@@ -698,6 +698,7 @@ function startSession() {
     peak: 0,
     cueSaid: false, countdown: null,
     lastTick: Date.now(),
+    hrHistory: [], // rolling {t,hr} pairs for trend calculation
   };
   document.getElementById('s-idle').style.display = 'none';
   document.getElementById('s-active').classList.add('show');
@@ -728,6 +729,11 @@ function tick() {
     if (hr > phase.hi)                    state.sess.aboveZone[state.sess.pi] += dt;
     if (phase.type === 'rest' && hr > 140) state.sess.recoveryHigh[state.sess.pi] += dt;
     if (hr > state.sess.peak)             state.sess.peak = hr;
+
+    // Rolling HR history for trend — keep last 20 seconds only
+    const now2 = Date.now();
+    state.sess.hrHistory.push({ t: now2, hr });
+    state.sess.hrHistory = state.sess.hrHistory.filter(p => now2 - p.t <= 20000);
   }
 
   // Show cue 30s into each interval
@@ -755,6 +761,7 @@ function nextPhase() {
   state.sess.pi++;
   if (state.sess.pi >= PHASES.length) { endSession(); return; }
   state.sess.pe = 0; state.sess.cueSaid = false; state.sess.countdown = null;
+  state.sess.hrHistory = []; // reset trend at each phase boundary
   hideCue();
   updateSessionBg();
   const p = PHASES[state.sess.pi];
@@ -866,6 +873,59 @@ function hideCue() {
   document.getElementById('s-cue').classList.remove('show');
 }
 
+// Returns bpm-per-second slope over the last N seconds of HR history.
+// Positive = HR climbing, negative = falling, 0 = flat or insufficient data.
+function hrSlope(seconds) {
+  const hist = state.sess?.hrHistory ?? [];
+  const cutoff = Date.now() - seconds * 1000;
+  const pts = hist.filter(p => p.t >= cutoff);
+  if (pts.length < 3) return 0;
+  // Simple linear regression slope
+  const n  = pts.length;
+  const tMean  = pts.reduce((s,p) => s + p.t, 0) / n;
+  const hrMean = pts.reduce((s,p) => s + p.hr, 0) / n;
+  const num = pts.reduce((s,p) => s + (p.t - tMean) * (p.hr - hrMean), 0);
+  const den = pts.reduce((s,p) => s + (p.t - tMean) ** 2, 0);
+  return den === 0 ? 0 : num / den * 1000; // convert ms→s, result is bpm/s
+}
+
+// Smart arrow: buffer band + trend prediction
+// BUFFER_BELOW: how many bpm below zone.lo counts as "approaching" — show → not ↑
+// CLIMBING_THRESHOLD: bpm/s slope that counts as "rising" for prediction
+const BUFFER_BELOW = 8;  // 154 - 8 = 146 is the buffer floor
+const CLIMBING_THRESHOLD = 0.3; // ~18 bpm/min upward trend
+
+function smartArrow(hr, phase) {
+  if (!hr || phase.type !== 'work') return { arrow: '', cls: '', label: '' };
+
+  const slope     = hrSlope(15); // slope over last 15 seconds
+  const climbing  = slope >= CLIMBING_THRESHOLD;
+  const falling   = slope <= -CLIMBING_THRESHOLD;
+  const bufferLo  = phase.lo - BUFFER_BELOW; // 146 with default settings
+
+  if (hr > phase.hi) {
+    // Above ceiling — always ease off
+    return { arrow: '↓', cls: 'dn', label: 'Ease off slightly' };
+  }
+
+  if (hr >= phase.lo) {
+    // Cleanly in zone
+    if (falling && hr < phase.lo + 6) {
+      // In zone but dropping fast and close to lower edge — warn gently
+      return { arrow: '↑', cls: 'up', label: 'Hold your effort' };
+    }
+    return { arrow: '→', cls: 'ok', label: 'In target zone' };
+  }
+
+  if (hr >= bufferLo && climbing) {
+    // In buffer band and rising — on track, hold steady
+    return { arrow: '→', cls: 'ok', label: 'On your way up — hold steady' };
+  }
+
+  // Below buffer band, or in buffer but flat/falling — genuinely need to push
+  return { arrow: '↑', cls: 'up', label: 'Push a little harder' };
+}
+
 function updateSessionUI() {
   if (!state.sess?.running) return;
   const phase = PHASES[state.sess.pi];
@@ -878,23 +938,11 @@ function updateSessionUI() {
   document.getElementById('s-time').textContent  = `${m}:${s.toString().padStart(2,'0')} remaining`;
   document.getElementById('s-hr').textContent    = hr > 0 ? hr : '—';
 
-  const arrow = document.getElementById('s-arrow');
-  if (!hr || phase.type !== 'work') {
-    arrow.textContent = ''; arrow.className = '';
-  } else if (hr < phase.lo) {
-    arrow.textContent = '↑'; arrow.className = 'up';
-  } else if (hr > phase.hi) {
-    arrow.textContent = '↓'; arrow.className = 'dn';
-  } else {
-    arrow.textContent = '→'; arrow.className = 'ok';
-  }
-
-  document.getElementById('s-zone').textContent =
-    !hr                      ? '' :
-    phase.type !== 'work'    ? '' :
-    hr < phase.lo            ? 'Push a little harder' :
-    hr > phase.hi            ? 'Ease off slightly' :
-                               'In target zone';
+  const { arrow, cls, label } = smartArrow(hr, phase);
+  const arrowEl = document.getElementById('s-arrow');
+  arrowEl.textContent = arrow;
+  arrowEl.className   = cls;
+  document.getElementById('s-zone').textContent = label;
 
   // Progress
   const pct = Math.min(state.sess.te / TOTAL, 1) * 100;
